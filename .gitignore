@@ -1,6 +1,91 @@
-.env
-node_modules
-.venv/
-data
-data/*
-data/
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.env/
+.envrc/
+*.env
+
+# =========================
+# Jupyter / Notebooks
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE / Editors
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# Data (IMPORTANT)
+# =========================
+data/raw/
+data/processed/
+
+# If you want to keep structure but not data:
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# =========================
+# Models (future)
+# =========================
+models/
+*.pt
+*.pth
+*.h5
+*.ckpt
+
+# =========================
+# Cache / Temp
+# =========================
+.cache/
+tmp/
+temp/
+
+# =========================
+# Test Outputs
+# =========================
+test_outputs/
+*.json
+
+# BUT allow config/test fixtures if needed
+!configs/*.json
+
+# =========================
+# Build / Packaging
+# =========================
+build/
+dist/
+*.egg-info/
+
+# =========================
+# Coverage
+# =========================
+.coverage
+htmlcov/
+
+# =========================
+# Misc
+# =========================
+*.sqlite3
+*.db
