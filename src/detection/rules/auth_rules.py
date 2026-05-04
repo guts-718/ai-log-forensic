@@ -1,13 +1,23 @@
-def detect_login_burst(events):
-    logins = [e for e in events if e["event_type"] == "logon"]
+def detect_login_burst(events, baseline):
+    count = sum(1 for e in events if e["event_type"] == "logon")
 
-    if len(logins) > 5:
+    avg = baseline.get("avg_logon", 1)
+
+    if avg == 0:
+        return
+
+    ratio = count / avg
+
+    if ratio > 3:
         return {
             "rule": "login_burst",
             "category": "brute_force",
-            "score": 2
+            "score": 2 if ratio < 5 else 3,
+            "details": {
+                "count": count,
+                "baseline": avg
+            }
         }
-
 
 def detect_off_hours(events):
     for e in events:

@@ -27,3 +27,20 @@ def detect_multi_exfiltration(events):
             "category": "data_exfiltration",
             "score": 4
         }
+    
+def detect_email_spike(events, baseline):
+    count = sum(1 for e in events if e["event_type"] == "email")
+
+    avg = baseline.get("avg_email", 1)
+
+    if avg == 0:
+        return
+
+    ratio = count / avg
+
+    if ratio > 3:
+        return {
+            "rule": "email_spike",
+            "category": "data_exfiltration",
+            "score": 2,
+        }
