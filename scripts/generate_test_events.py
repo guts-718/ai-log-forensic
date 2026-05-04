@@ -10,7 +10,7 @@ def normal_user(user="U1"):
     base = datetime(2024, 1, 1, 10, 0)
 
     events = []
-    for i in range(10):
+    for i in range(50):
         events.append({
             "timestamp": generate_timestamp(base, i * 5),
             "user": user,

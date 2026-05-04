@@ -121,7 +121,8 @@ def run_detection(events, window_size="1H"):
                 "event_count": len(w),
                 "score": score,
                 "risk_level": get_risk_level(score),
-                "detections": detections
+                "detections": detections,
+                 "raw_events": w
             })
 
             user_score += score

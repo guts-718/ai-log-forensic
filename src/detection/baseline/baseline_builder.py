@@ -6,7 +6,8 @@ def build_user_baselines(events):
     df = pd.DataFrame(events)
     df["timestamp"] = pd.to_datetime(df["timestamp"])
 
-    df["hour"] = df["timestamp"].dt.floor("H")
+    df["hour"] = df["timestamp"].dt.floor("h")
+    # df["hour"] = df["timestamp"].dt.floor("H")
 
     baselines = {}
 
