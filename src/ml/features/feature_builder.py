@@ -121,8 +121,15 @@ def build_feature_dataset(detection_output):
             # -----------------------------
             # Label (weak supervision)
             # -----------------------------
-            label = 1 if window["risk_level"] == "HIGH" else 0
-
+            # label = 1 if window["score"] >= 5 else 0
+            
+            if window["score"] >= 7:
+                label = 1
+            elif window["score"] <= 2:
+                label = 0
+            else:
+                continue  # skip ambiguous windows
+            
             features["label"] = label
             features["user"] = user
 

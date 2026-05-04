@@ -31,6 +31,7 @@ def get_risk_level(score):
     return "LOW"
 
 
+
 # -------------------------
 # Evaluate single window
 # -------------------------

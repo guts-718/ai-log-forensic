@@ -9,9 +9,15 @@ from src.normalization.normalizer import normalize_events
 from src.sequence.builder import build_sequences
 
 DATA_DIR = Path("data/processed")
+# DATA_DIR = Path("data/raw")
 
 def run():
     print("Loading data...")
+
+    # logon = load_csv(DATA_DIR / "logon.csv")
+    # file = load_csv(DATA_DIR / "file.csv")
+    # email = load_csv(DATA_DIR / "email.csv")
+    # device = load_csv(DATA_DIR / "device.csv")
 
     logon = load_csv(DATA_DIR / "logon_small.csv")
     file = load_csv(DATA_DIR / "file_small.csv")

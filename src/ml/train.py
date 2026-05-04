@@ -45,7 +45,8 @@ def prepare_data(df):
 # Evaluation helper
 # -----------------------------
 def evaluate_model(name, model, X_test, y_test):
-    y_pred = model.predict(X_test)
+    probs = model.predict_proba(X_test)[:, 1]
+    y_pred = (probs > 0.6).astype(int)
 
     precision = precision_score(y_test, y_pred, zero_division=0)
     recall = recall_score(y_test, y_pred, zero_division=0)
