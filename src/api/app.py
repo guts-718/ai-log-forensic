@@ -4,6 +4,9 @@ from typing import List, Dict
 
 from src.services.ingestion_service import ingest_events, get_sequences
 from src.services.detection_service import detect_anomaly
+from src.detection.engine import run_detection
+from src.services.ingestion_service import EVENT_STORE
+
 
 app = FastAPI()
 
@@ -47,6 +50,10 @@ def users():
     sequences = get_sequences()
     return {"users": list(sequences.keys())}
 
+
+@app.get("/detect")
+def detect_all():
+    return run_detection(EVENT_STORE)
 
 @app.get("/detect/{user}")
 def detect(user: str):
