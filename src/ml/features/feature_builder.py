@@ -1,6 +1,6 @@
 import pandas as pd
 from collections import Counter
-
+import numpy as np
 
 # -----------------------------
 # Helper: transitions
@@ -69,6 +69,15 @@ def build_features_for_window(events):
     feature["logon_count"] = types.count("logon")
     feature["device_count"] = types.count("device")
 
+  
+
+
+
+    # -----------------------------
+    # Activity intensity ratio
+    # -----------------------------
+
+
     # -----------------------------
     # Diversity
     # -----------------------------
@@ -77,8 +86,18 @@ def build_features_for_window(events):
     timestamps = [e["timestamp"] for e in events]
     times = pd.to_datetime(timestamps)
 
-    feature["window_duration"] = (times.max() - times.min()).total_seconds()
+    # -----------------------------
+    # Time-based features
+    # -----------------------------
+    if len(times) > 1:
+        window_duration = (times.max() - times.min()).total_seconds()
+    else:
+        window_duration = 1  # avoid zero division
+
+    feature["window_duration"] = window_duration
+
     feature["events_per_min"] = len(events) / (feature["window_duration"] / 60 + 1e-5)
+    feature["activity_intensity"] = feature["event_count"] / (feature["window_duration"] + 1e-5)
     feature["active_hours"] = len(set(times.hour))
 
     total = len(events) + 1e-5
@@ -88,7 +107,16 @@ def build_features_for_window(events):
     feature["device_ratio"] = feature["device_count"] / total
 
     time_diffs = sorted(times)
-    diffs = [(time_diffs[i + 1] - time_diffs[i]).total_seconds() for i in range(len(time_diffs) - 1)]
+    
+    if len(times) > 1:
+        diffs = [(times[i+1] - times[i]).total_seconds() for i in range(len(times)-1)]
+    else:
+        diffs = []
+
+    if diffs:
+        feature["time_gap_std"] = np.std(diffs)
+    else:
+        feature["time_gap_std"] = 0
 
     if diffs:
         feature["avg_time_gap"] = sum(diffs) / len(diffs)
