@@ -84,7 +84,7 @@ def evaluate_model(name, model, X_test, y_test):
     probs = model.predict_proba(X_test)[:, 1]
 
     # lower threshold → higher recall
-    threshold = 0.4
+    threshold = 0.40
 
     y_pred = (probs >= threshold).astype(int)
 
@@ -155,7 +155,12 @@ def train_models(df):
     # 🥈 Mid Models
 
     # Random Forest
-    rf = RandomForestClassifier(n_estimators=150, class_weight="balanced")
+    rf = RandomForestClassifier(
+        n_estimators=300,
+        max_depth=10,
+        min_samples_split=5,
+        class_weight="balanced"
+    )
     rf.fit(X_train, y_train)
     results.append(evaluate_model("Random Forest", rf, X_test, y_test))
 
@@ -175,7 +180,7 @@ def train_models(df):
         results.append(evaluate_model("XGBoost", xgb, X_test, y_test))
 
     if LGBMClassifier:
-        lgbm = LGBMClassifier(scale_pos_weight=5)
+        lgbm = LGBMClassifier(scale_pos_weight=3)
         lgbm.fit(X_train, y_train)
         results.append(evaluate_model("LightGBM", lgbm, X_test, y_test))
 

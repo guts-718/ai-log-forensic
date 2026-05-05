@@ -1,7 +1,7 @@
 import pandas as pd
 from collections import Counter
 import numpy as np
-
+import random
 # -----------------------------
 # Helper: transitions
 # -----------------------------
@@ -70,7 +70,14 @@ def build_features_for_window(events):
     feature["device_count"] = types.count("device")
 
   
+    # -----------------------------
+    # Weak exfiltration signal (safe)
+    # -----------------------------
+    feature["file_then_device_proximity"] = 0
 
+    for i in range(len(events) - 1):
+        if events[i]["event_type"] == "file" and events[i+1]["event_type"] == "device":
+            feature["file_then_device_proximity"] += 1
 
 
     # -----------------------------
@@ -97,7 +104,7 @@ def build_features_for_window(events):
     feature["window_duration"] = window_duration
 
     feature["events_per_min"] = len(events) / (feature["window_duration"] / 60 + 1e-5)
-    feature["activity_intensity"] = feature["event_count"] / (feature["window_duration"] + 1e-5)
+    feature["activity_intensity"] = feature["event_count"] / max(window_duration, 60)
     feature["active_hours"] = len(set(times.hour))
 
     total = len(events) + 1e-5
@@ -105,9 +112,12 @@ def build_features_for_window(events):
     feature["file_ratio"] = feature["file_count"] / total
     feature["email_ratio"] = feature["email_count"] / total
     feature["device_ratio"] = feature["device_count"] / total
-
+    # -----------------------------
+    # Repetition pattern
+    # -----------------------------
+    feature["max_event_repeat"] = max(Counter(types).values())
     time_diffs = sorted(times)
-    
+
     if len(times) > 1:
         diffs = [(times[i+1] - times[i]).total_seconds() for i in range(len(times)-1)]
     else:
@@ -186,15 +196,15 @@ def build_feature_dataset(detection_output):
             # -----------------------------
             # Label (weak supervision)
             # -----------------------------
-            if window["score"] >= 6:
+            if window["score"] >= 5:
                 label = 1
-            elif window["score"] <= 3:
+            elif window["score"] <= 2:
                 label = 0
             else:
-                continue  # skip ambiguous windows
+                label = 1 if random.random() < 0.3 else 0
             
 
-            import random
+            
 
             if random.random() < 0.05:
                 label = 1 - label
