@@ -1,6 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, precision_score, recall_score, f1_score
+import numpy as np
 
 # Models
 from sklearn.linear_model import LogisticRegression
@@ -18,6 +19,35 @@ try:
 except:
     LGBMClassifier = None
 
+
+
+from sklearn.preprocessing import StandardScaler
+
+def prepare_data_cross_user(df):
+    df = df.copy()
+
+    unique_users = df["user"].unique()
+    np.random.shuffle(unique_users)
+    # split users
+    split_idx = int(0.8 * len(unique_users))
+
+    train_users = unique_users[:split_idx]
+    test_users = unique_users[split_idx:]
+
+    train_df = df[df["user"].isin(train_users)]
+    test_df = df[df["user"].isin(test_users)]
+
+    X_train = train_df.drop(columns=["label", "user"])
+    y_train = train_df["label"]
+
+    X_test = test_df.drop(columns=["label", "user"])
+    y_test = test_df["label"]
+
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    return X_train, X_test, y_train, y_test
 
 
 from sklearn.model_selection import GroupShuffleSplit
@@ -95,7 +125,7 @@ def show_feature_importance(model, feature_names):
 # Train all models
 # -----------------------------
 def train_models(df):
-    X_train, X_test, y_train, y_test = prepare_data(df)
+    X_train, X_test, y_train, y_test = prepare_data_cross_user(df)
 
     results = []
 

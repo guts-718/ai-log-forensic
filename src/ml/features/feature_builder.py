@@ -158,16 +158,23 @@ def build_feature_dataset(detection_output):
             # -----------------------------
             # Label (weak supervision)
             # -----------------------------
-            if window["score"] >= 7:
+            if window["score"] >= 6:
                 label = 1
-            elif window["score"] <= 2:
+            elif window["score"] <= 3:
                 label = 0
             else:
                 continue  # skip ambiguous windows
+            
+
+            import random
+
+            if random.random() < 0.05:
+                label = 1 - label
 
             features["label"] = label
             features["user"] = user
-
+            
+            
             rows.append(features)
 
     df = pd.DataFrame(rows)
