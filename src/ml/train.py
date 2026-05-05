@@ -19,23 +19,29 @@ except:
     LGBMClassifier = None
 
 
-# -----------------------------
-# Prepare dataset
-# -----------------------------
+
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn.preprocessing import StandardScaler
+
 
 def prepare_data(df):
     df = df.copy()
 
     X = df.drop(columns=["label", "user"])
     y = df["label"]
+    groups = df["user"]
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+    gss = GroupShuffleSplit(test_size=0.2, random_state=42)
+    train_idx, test_idx = next(gss.split(X, y, groups))
 
+    X_train = X.iloc[train_idx]
+    y_train = y.iloc[train_idx]
+
+    X_test = X.iloc[test_idx]
+    y_test = y.iloc[test_idx]
+
+    # Scaling (important for LR)
     scaler = StandardScaler()
-
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
 
@@ -70,6 +76,20 @@ def cross_validate(model, X, y):
     scores = cross_val_score(model, X, y, cv=5, scoring="f1")
     return scores.mean()
 
+import pandas as pd
+
+def show_feature_importance(model, feature_names):
+    importances = model.feature_importances_
+    df = pd.DataFrame({
+        "feature": feature_names,
+        "importance": importances
+    }).sort_values(by="importance", ascending=False)
+
+    print("\nTop Features:")
+    print(df.head(10))
+
+    return df
+
 
 # -----------------------------
 # Train all models
@@ -101,6 +121,9 @@ def train_models(df):
     rf = RandomForestClassifier(n_estimators=100, class_weight="balanced")
     rf.fit(X_train, y_train)
     results.append(evaluate_model("Random Forest", rf, X_test, y_test))
+
+    feature_names = df.drop(columns=["label", "user"]).columns
+    show_feature_importance(rf, feature_names)
 
     # Gradient Boosting
     gb = GradientBoostingClassifier()

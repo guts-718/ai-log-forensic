@@ -7,7 +7,7 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 FILES = ["logon.csv", "file.csv", "email.csv", "device.csv"]
 
-def get_top_users(file_path, user_col="user", n=5):
+def get_top_users(file_path, user_col="user", n=20):
     df = pd.read_csv(file_path, usecols=[user_col])
     top_users = df[user_col].value_counts().head(n).index.tolist()
     return top_users

@@ -74,25 +74,62 @@ def build_features_for_window(events):
     # -----------------------------
     feature["unique_event_types"] = len(set(types))
 
+    timestamps = [e["timestamp"] for e in events]
+    times = pd.to_datetime(timestamps)
+
+    feature["window_duration"] = (times.max() - times.min()).total_seconds()
+    feature["events_per_min"] = len(events) / (feature["window_duration"] / 60 + 1e-5)
+    feature["active_hours"] = len(set(times.hour))
+
+    total = len(events) + 1e-5
+
+    feature["file_ratio"] = feature["file_count"] / total
+    feature["email_ratio"] = feature["email_count"] / total
+    feature["device_ratio"] = feature["device_count"] / total
+
+    time_diffs = sorted(times)
+    diffs = [(time_diffs[i + 1] - time_diffs[i]).total_seconds() for i in range(len(time_diffs) - 1)]
+
+    if diffs:
+        feature["avg_time_gap"] = sum(diffs) / len(diffs)
+        feature["min_time_gap"] = min(diffs)
+    else:
+        feature["avg_time_gap"] = 0
+        feature["min_time_gap"] = 0
+
+    from math import log2
+    counts = Counter(types)
+    probs = [c / len(types) for c in counts.values()]
+    entropy = -sum(p * log2(p) for p in probs)
+
+    feature["event_entropy"] = entropy
+
+    feature["first_event"] = events[0]["event_type"]
+    feature["last_event"] = events[-1]["event_type"]
+
     # -----------------------------
-    # Transitions
+    # Transitions (FIXED ORDER)
     # -----------------------------
     transitions = extract_transitions(events)
 
-    # Only key transitions (avoid feature explosion)
+    feature["num_transitions"] = sum(transitions.values())
+    feature["transition_diversity"] = len(transitions)
+
+    # -----------------------------
+    # Transitions (safe subset)
+    # -----------------------------
     for t in [
-        "file->device",
-        "file->email",
-        "email->device",
         "logon->file",
-        "device->logon",
+        "file->file",
+        "email->email",
+        "device->logon"
     ]:
         feature[f"transition_{t}"] = transitions.get(t, 0)
 
     # -----------------------------
-    # Pattern flags
+    # Pattern flags (kept as-is)
     # -----------------------------
-    feature.update(extract_pattern_flags(events))
+    # feature.update(extract_pattern_flags(events))
 
     # -----------------------------
     # Sequence signature
@@ -115,21 +152,19 @@ def build_feature_dataset(detection_output):
     for user, data in detection_output.items():
         for window in data["windows"]:
             features = build_features_for_window(
-                window.get("raw_events", [])  # we will add this shortly
+                window.get("raw_events", [])
             )
 
             # -----------------------------
             # Label (weak supervision)
             # -----------------------------
-            # label = 1 if window["score"] >= 5 else 0
-            
             if window["score"] >= 7:
                 label = 1
             elif window["score"] <= 2:
                 label = 0
             else:
                 continue  # skip ambiguous windows
-            
+
             features["label"] = label
             features["user"] = user
 
@@ -138,8 +173,8 @@ def build_feature_dataset(detection_output):
     df = pd.DataFrame(rows)
 
     # -----------------------------
-    # Encode sequence_signature
+    # Encode categorical
     # -----------------------------
-    df = pd.get_dummies(df, columns=["sequence_signature"])
+    df = pd.get_dummies(df, columns=["sequence_signature", "first_event", "last_event"])
 
     return df
