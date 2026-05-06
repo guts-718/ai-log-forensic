@@ -88,8 +88,8 @@ def evaluate_model(name, model, X_test, y_test):
         "Logistic Regression": 0.35,
         "Decision Tree": 0.35,
         "Random Forest": 0.30,
-        "Gradient Boosting": 0.25,
-        "LightGBM": 0.25,
+        "Gradient Boosting": 0.20,
+        "LightGBM": 0.18,
     }
 
     threshold = thresholds.get(name, 0.30)
@@ -164,11 +164,13 @@ def train_models(df):
 
     # Random Forest
     rf = RandomForestClassifier(
-        n_estimators=300,
-        max_depth=10,
-        min_samples_split=5,
+        n_estimators=400,
+        max_depth=16,
+        min_samples_split=3,
+        min_samples_leaf=2,
         class_weight="balanced"
     )
+
     rf.fit(X_train, y_train)
     results.append(evaluate_model("Random Forest", rf, X_test, y_test))
 
@@ -193,8 +195,8 @@ def train_models(df):
 
     if LGBMClassifier:
         lgbm = LGBMClassifier(
-            scale_pos_weight=3,
-            n_estimators=300,
+            scale_pos_weight=10,     # ↑ stronger push toward positives
+            n_estimators=400,
             num_leaves=31,
             max_depth=6,
             learning_rate=0.05

@@ -71,6 +71,8 @@ def build_features_for_window(events):
     feature["logon_count"] = types.count("logon")
     feature["device_count"] = types.count("device")
     feature["event_density"] = len(events) / (feature["unique_event_types"] + 1e-5)
+    
+
 
   
     # -----------------------------
@@ -87,7 +89,7 @@ def build_features_for_window(events):
     # Activity intensity ratio
     # -----------------------------
 
-
+    
     # -----------------------------
     # Diversity
     # -----------------------------
@@ -103,6 +105,16 @@ def build_features_for_window(events):
         window_duration = (times.max() - times.min()).total_seconds()
     else:
         window_duration = 1  # avoid zero division
+
+        # -----------------------------
+    # Burst ratio (short gaps proportion)
+    # -----------------------------
+    if len(times) > 1:
+        diffs = [(times[i+1] - times[i]).total_seconds() for i in range(len(times)-1)]
+        short_gaps = sum(1 for d in diffs if d < 60)  # events within 1 min
+        feature["burst_ratio"] = short_gaps / (len(diffs) + 1e-5)
+    else:
+        feature["burst_ratio"] = 0
 
     feature["window_duration"] = window_duration
 
@@ -204,7 +216,7 @@ def build_feature_dataset(detection_output):
             elif window["score"] <= 2:
                 label = 0
             else:
-                label = 1 if random.random() < 0.2 else 0
+                label = 1 if random.random() < 0.1 else 0
                         
 
             if random.random() < 0.05:
