@@ -63,11 +63,14 @@ def build_features_for_window(events):
     # -----------------------------
     # Basic counts
     # -----------------------------
+
+    feature["unique_event_types"] = len(set(types))
     feature["event_count"] = len(events)
     feature["file_count"] = types.count("file")
     feature["email_count"] = types.count("email")
     feature["logon_count"] = types.count("logon")
     feature["device_count"] = types.count("device")
+    feature["event_density"] = len(events) / (feature["unique_event_types"] + 1e-5)
 
   
     # -----------------------------
@@ -88,7 +91,7 @@ def build_features_for_window(events):
     # -----------------------------
     # Diversity
     # -----------------------------
-    feature["unique_event_types"] = len(set(types))
+    
 
     timestamps = [e["timestamp"] for e in events]
     times = pd.to_datetime(timestamps)
@@ -201,10 +204,8 @@ def build_feature_dataset(detection_output):
             elif window["score"] <= 2:
                 label = 0
             else:
-                label = 1 if random.random() < 0.3 else 0
-            
-
-            
+                label = 1 if random.random() < 0.2 else 0
+                        
 
             if random.random() < 0.05:
                 label = 1 - label

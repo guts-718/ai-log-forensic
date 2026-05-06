@@ -83,8 +83,16 @@ def prepare_data(df):
 def evaluate_model(name, model, X_test, y_test):
     probs = model.predict_proba(X_test)[:, 1]
 
-    # lower threshold → higher recall
-    threshold = 0.40
+    # model-specific thresholds
+    thresholds = {
+        "Logistic Regression": 0.35,
+        "Decision Tree": 0.35,
+        "Random Forest": 0.30,
+        "Gradient Boosting": 0.25,
+        "LightGBM": 0.25,
+    }
+
+    threshold = thresholds.get(name, 0.30)
 
     y_pred = (probs >= threshold).astype(int)
 
@@ -168,7 +176,11 @@ def train_models(df):
     show_feature_importance(rf, feature_names)
 
     # Gradient Boosting
-    gb = GradientBoostingClassifier()
+    gb = GradientBoostingClassifier(
+    n_estimators=200,
+        learning_rate=0.05,
+        max_depth=3
+    )
     gb.fit(X_train, y_train)
     results.append(evaluate_model("Gradient Boosting", gb, X_test, y_test))
 
@@ -180,7 +192,13 @@ def train_models(df):
         results.append(evaluate_model("XGBoost", xgb, X_test, y_test))
 
     if LGBMClassifier:
-        lgbm = LGBMClassifier(scale_pos_weight=3)
+        lgbm = LGBMClassifier(
+            scale_pos_weight=3,
+            n_estimators=300,
+            num_leaves=31,
+            max_depth=6,
+            learning_rate=0.05
+        )
         lgbm.fit(X_train, y_train)
         results.append(evaluate_model("LightGBM", lgbm, X_test, y_test))
 
