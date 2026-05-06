@@ -54,21 +54,41 @@ def prepare_data_cross_user(df):
 # -----------------------------
 # Threshold optimization
 # -----------------------------
+from sklearn.metrics import precision_score
+
+from sklearn.metrics import fbeta_score, precision_score
+
 def find_best_threshold(y_test, probs):
-    best_score = 0
+    best_score = -1
     best_threshold = 0.5
     best_pred = None
+
+    fallback_score = -1
+    fallback_pred = None
+    fallback_threshold = 0.5
 
     for t in np.arange(0.1, 0.6, 0.05):
         y_temp = (probs >= t).astype(int)
 
-        # 🔥 F-beta (beta=2 → recall weighted)
-        score = fbeta_score(y_test, y_temp, beta=2)
+        precision = precision_score(y_test, y_temp, zero_division=0)
+        score = fbeta_score(y_test, y_temp, beta=2.5)
 
-        if score > best_score:
+        # 🔥 fallback (always track best F2)
+        if score > fallback_score:
+            fallback_score = score
+            fallback_pred = y_temp
+            fallback_threshold = t
+
+        # 🔥 preferred (with precision constraint)
+        if precision >= 0.70 and score > best_score:
             best_score = score
             best_threshold = t
             best_pred = y_temp
+
+    # 🔥 if no threshold met precision constraint → fallback
+    if best_pred is None:
+        best_pred = fallback_pred
+        best_threshold = fallback_threshold
 
     return best_threshold, best_pred
 
@@ -78,6 +98,7 @@ def find_best_threshold(y_test, probs):
 # -----------------------------
 def evaluate_model(name, model, X_test, y_test):
     probs = model.predict_proba(X_test)[:, 1]
+    probs = np.clip(probs, 0.01, 0.99)
 
     threshold, y_pred = find_best_threshold(y_test, probs)
 
@@ -122,7 +143,12 @@ def train_models(df):
     # -------------------------
     # Decision Tree
     # -------------------------
-    dt = DecisionTreeClassifier(max_depth=6, class_weight="balanced")
+    dt = DecisionTreeClassifier(
+    max_depth=8,
+    min_samples_split=10,
+    min_samples_leaf=5,
+    class_weight="balanced"
+)
     dt.fit(X_train, y_train)
     results.append(evaluate_model("Decision Tree", dt, X_test, y_test))
 
@@ -130,10 +156,11 @@ def train_models(df):
     # Random Forest
     # -------------------------
     rf = RandomForestClassifier(
-        n_estimators=300,
-        max_depth=12,
+        n_estimators=400,
+        max_depth=14,
         min_samples_split=5,
-        min_samples_leaf=3,
+        min_samples_leaf=2,
+        max_features="sqrt",
         class_weight="balanced"
     )
     rf.fit(X_train, y_train)
@@ -143,9 +170,10 @@ def train_models(df):
     # Gradient Boosting
     # -------------------------
     gb = GradientBoostingClassifier(
-        n_estimators=200,
-        learning_rate=0.05,
-        max_depth=3
+        n_estimators=300,
+        learning_rate=0.04,
+        max_depth=3,
+        subsample=0.8
     )
     gb.fit(X_train, y_train)
     results.append(evaluate_model("Gradient Boosting", gb, X_test, y_test))
@@ -155,12 +183,14 @@ def train_models(df):
     # -------------------------
     if LGBMClassifier:
         lgbm = LGBMClassifier(
-            scale_pos_weight=4,
-            n_estimators=500,
-            num_leaves=50,
-            max_depth=8,
-            learning_rate=0.04
-        )
+        scale_pos_weight=5,
+        n_estimators=600,
+        num_leaves=64,
+        max_depth=8,
+        learning_rate=0.015,
+        colsample_bytree=0.8,
+    subsample=0.8
+    )
         lgbm.fit(X_train, y_train)
         results.append(evaluate_model("LightGBM", lgbm, X_test, y_test))
 

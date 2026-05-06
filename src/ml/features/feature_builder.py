@@ -162,9 +162,36 @@ def build_features_for_window(events, baselines):
     # -----------------------------
     baseline = baselines.get(user, {})
 
-    feature["file_dev"] = feature["file_count"] - baseline.get("avg_file", 0)
-    feature["email_dev"] = feature["email_count"] - baseline.get("avg_email", 0)
-    feature["logon_dev"] = feature["logon_count"] - baseline.get("avg_logon", 0)
+    feature["file_dev_norm"] = (
+    feature["file_count"] - baseline.get("avg_file", 0)
+    ) / (baseline.get("std_file", 1) + 1e-5)
+
+    feature["email_dev_norm"] = (
+        feature["email_count"] - baseline.get("avg_email", 0)
+    ) / (baseline.get("std_email", 1) + 1e-5)
+
+    feature["logon_dev_norm"] = (
+        feature["logon_count"] - baseline.get("avg_logon", 0)
+    ) / (baseline.get("std_logon", 1) + 1e-5)
+
+
+    feature["total_dev"] = (
+    abs(feature["file_dev_norm"]) +
+    abs(feature["email_dev_norm"]) +
+    abs(feature["logon_dev_norm"])
+
+
+)
+    feature["extreme_file_dev"] = 1 if abs(feature["file_dev_norm"]) > 2 else 0
+    feature["extreme_email_dev"] = 1 if abs(feature["email_dev_norm"]) > 2 else 0
+    feature["extreme_logon_dev"] = 1 if abs(feature["logon_dev_norm"]) > 2 else 0
+    feature["file_x_device"] = feature["file_count"] * feature["device_count"]
+
+    feature["any_extreme_dev"] = (
+    feature["extreme_file_dev"] +
+    feature["extreme_email_dev"] +
+    feature["extreme_logon_dev"]
+)
 
     return feature
 
