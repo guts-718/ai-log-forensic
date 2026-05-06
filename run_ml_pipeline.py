@@ -3,6 +3,7 @@ from src.services.ingestion_service import EVENT_STORE
 from src.detection.engine import run_detection
 from src.ml.features.feature_builder import build_feature_dataset
 from src.ml.train import train_models
+from src.detection.baseline.baseline_builder import build_user_baselines
 
 import json
 
@@ -72,6 +73,9 @@ def main():
     # -----------------------------
     print("🔹 Running detection engine...")
     detection_output: DetectionOutput = run_detection(EVENT_STORE) # type: ignore
+
+    print("🔹 Building user baselines...")
+    baselines = build_user_baselines(EVENT_STORE)
     
     print(type(detection_output))
     print(list(detection_output.keys())[:3])
@@ -90,7 +94,7 @@ def main():
     # STEP 3 — Build feature dataset
     # -----------------------------
     print("🔹 Building feature dataset...")
-    df = build_feature_dataset(detection_output)
+    df = build_feature_dataset(detection_output, baselines)
 
     print(f"Dataset shape: {df.shape}")
     print(df.head())

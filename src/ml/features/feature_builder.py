@@ -1,9 +1,13 @@
 import pandas as pd
-from collections import Counter
 import numpy as np
 import random
+
+from collections import Counter
+from math import log2
+
+
 # -----------------------------
-# Helper: transitions
+# Transition extraction
 # -----------------------------
 def extract_transitions(events):
     transitions = Counter()
@@ -18,22 +22,7 @@ def extract_transitions(events):
 
 
 # -----------------------------
-# Helper: pattern flags
-# -----------------------------
-def extract_pattern_flags(events):
-    types = [e["event_type"] for e in events]
-
-    return {
-        "has_file_to_usb": int("file" in types and "device" in types),
-        "has_file_to_email": int("file" in types and "email" in types),
-        "has_multi_exfil": int(
-            "file" in types and "email" in types and "device" in types
-        ),
-    }
-
-
-# -----------------------------
-# Helper: sequence signature
+# Sequence signature
 # -----------------------------
 def extract_sequence_signature(events, max_len=5):
     mapping = {
@@ -45,7 +34,6 @@ def extract_sequence_signature(events, max_len=5):
 
     seq = [mapping.get(e["event_type"], "X") for e in events[:max_len]]
 
-    # pad if short
     while len(seq) < max_len:
         seq.append("PAD")
 
@@ -55,122 +43,85 @@ def extract_sequence_signature(events, max_len=5):
 # -----------------------------
 # Main Feature Builder
 # -----------------------------
-def build_features_for_window(events):
+def build_features_for_window(events, baselines):
     feature = {}
 
+    if not events:
+        return None
+
+    user = events[0]["user"]
+
+    # -----------------------------
+    # Extract types
+    # -----------------------------
     types = [e["event_type"] for e in events]
 
     # -----------------------------
     # Basic counts
     # -----------------------------
-
-    feature["unique_event_types"] = len(set(types))
     feature["event_count"] = len(events)
     feature["file_count"] = types.count("file")
     feature["email_count"] = types.count("email")
     feature["logon_count"] = types.count("logon")
     feature["device_count"] = types.count("device")
-    feature["event_density"] = len(events) / (feature["unique_event_types"] + 1e-5)
-    
 
-
-  
-    # -----------------------------
-    # Weak exfiltration signal (safe)
-    # -----------------------------
-    feature["file_then_device_proximity"] = 0
-
-    for i in range(len(events) - 1):
-        if events[i]["event_type"] == "file" and events[i+1]["event_type"] == "device":
-            feature["file_then_device_proximity"] += 1
-
+    feature["unique_event_types"] = len(set(types))
 
     # -----------------------------
-    # Activity intensity ratio
+    # Time features
     # -----------------------------
-
-    
-    # -----------------------------
-    # Diversity
-    # -----------------------------
-    
-
     timestamps = [e["timestamp"] for e in events]
     times = pd.to_datetime(timestamps)
 
-    # -----------------------------
-    # Time-based features
-    # -----------------------------
     if len(times) > 1:
         window_duration = (times.max() - times.min()).total_seconds()
     else:
-        window_duration = 1  # avoid zero division
-
-        # -----------------------------
-    # Burst ratio (short gaps proportion)
-    # -----------------------------
-    if len(times) > 1:
-        diffs = [(times[i+1] - times[i]).total_seconds() for i in range(len(times)-1)]
-        short_gaps = sum(1 for d in diffs if d < 60)  # events within 1 min
-        feature["burst_ratio"] = short_gaps / (len(diffs) + 1e-5)
-    else:
-        feature["burst_ratio"] = 0
+        window_duration = 1
 
     feature["window_duration"] = window_duration
 
-    feature["events_per_min"] = len(events) / (feature["window_duration"] / 60 + 1e-5)
+    # stable intensity
     feature["activity_intensity"] = feature["event_count"] / max(window_duration, 60)
-    feature["active_hours"] = len(set(times.hour))
 
+    # -----------------------------
+    # Time gaps
+    # -----------------------------
+    if len(times) > 1:
+        diffs = [(times[i+1] - times[i]).total_seconds() for i in range(len(times)-1)]
+
+        feature["avg_time_gap"] = np.mean(diffs)
+        feature["min_time_gap"] = np.min(diffs)
+        feature["time_gap_std"] = np.std(diffs)
+
+        short_gaps = sum(1 for d in diffs if d < 60)
+        feature["burst_ratio"] = short_gaps / (len(diffs) + 1e-5)
+    else:
+        feature["avg_time_gap"] = 0
+        feature["min_time_gap"] = 0
+        feature["time_gap_std"] = 0
+        feature["burst_ratio"] = 0
+
+    # -----------------------------
+    # Ratios
+    # -----------------------------
     total = len(events) + 1e-5
 
     feature["file_ratio"] = feature["file_count"] / total
     feature["email_ratio"] = feature["email_count"] / total
     feature["device_ratio"] = feature["device_count"] / total
+
     # -----------------------------
-    # Repetition pattern
+    # Entropy
     # -----------------------------
-    feature["max_event_repeat"] = max(Counter(types).values())
-    time_diffs = sorted(times)
-
-    if len(times) > 1:
-        diffs = [(times[i+1] - times[i]).total_seconds() for i in range(len(times)-1)]
-    else:
-        diffs = []
-
-    if diffs:
-        feature["time_gap_std"] = np.std(diffs)
-    else:
-        feature["time_gap_std"] = 0
-
-    if diffs:
-        feature["avg_time_gap"] = sum(diffs) / len(diffs)
-        feature["min_time_gap"] = min(diffs)
-    else:
-        feature["avg_time_gap"] = 0
-        feature["min_time_gap"] = 0
-
-    from math import log2
     counts = Counter(types)
     probs = [c / len(types) for c in counts.values()]
-    entropy = -sum(p * log2(p) for p in probs)
-
-    feature["event_entropy"] = entropy
-
-    feature["first_event"] = events[0]["event_type"]
-    feature["last_event"] = events[-1]["event_type"]
+    feature["event_entropy"] = -sum(p * log2(p) for p in probs)
 
     # -----------------------------
-    # Transitions (FIXED ORDER)
+    # Transitions
     # -----------------------------
     transitions = extract_transitions(events)
 
-    feature["num_transitions"] = sum(transitions.values())
-    feature["transition_diversity"] = len(transitions)
-
-    # -----------------------------
-    # Transitions (safe subset)
-    # -----------------------------
     for t in [
         "logon->file",
         "file->file",
@@ -179,53 +130,74 @@ def build_features_for_window(events):
     ]:
         feature[f"transition_{t}"] = transitions.get(t, 0)
 
-    # -----------------------------
-    # Pattern flags (kept as-is)
-    # -----------------------------
-    # feature.update(extract_pattern_flags(events))
+    feature["num_transitions"] = sum(transitions.values())
+    feature["transition_diversity"] = len(transitions)
 
     # -----------------------------
-    # Sequence signature
+    # Sequence features
     # -----------------------------
     feature["sequence_signature"] = extract_sequence_signature(events)
+
+    feature["first_event"] = events[0]["event_type"]
+    feature["last_event"] = events[-1]["event_type"]
+
+    feature["event_switch_rate"] = feature["transition_diversity"] / (feature["event_count"] + 1e-5)
+
+    # -----------------------------
+    # Repetition
+    # -----------------------------
+    feature["max_event_repeat"] = max(Counter(types).values())
+
+    # -----------------------------
+    # Weak sequential signal
+    # -----------------------------
+    feature["file_then_device_proximity"] = 0
+
+    for i in range(len(events) - 1):
+        if events[i]["event_type"] == "file" and events[i+1]["event_type"] == "device":
+            feature["file_then_device_proximity"] += 1
+
+    # -----------------------------
+    # 🔥 BASELINE DEVIATION (KEY FEATURE)
+    # -----------------------------
+    baseline = baselines.get(user, {})
+
+    feature["file_dev"] = feature["file_count"] - baseline.get("avg_file", 0)
+    feature["email_dev"] = feature["email_count"] - baseline.get("avg_email", 0)
+    feature["logon_dev"] = feature["logon_count"] - baseline.get("avg_logon", 0)
 
     return feature
 
 
 # -----------------------------
-# Convert all windows → dataframe
+# Dataset Builder
 # -----------------------------
-def build_feature_dataset(detection_output):
-    """
-    detection_output = output from rule engine
-    """
-
+def build_feature_dataset(detection_output, baselines):
     rows = []
 
     for user, data in detection_output.items():
         for window in data["windows"]:
-            features = build_features_for_window(
-                window.get("raw_events", [])
-            )
+
+            events = window.get("raw_events", [])
+
+            features = build_features_for_window(events, baselines)
+
+            if features is None:
+                continue
 
             # -----------------------------
-            # Label (weak supervision)
+            # Label logic
             # -----------------------------
-            if window["score"] >= 5:
+            if window["score"] >= 7:
                 label = 1
             elif window["score"] <= 2:
                 label = 0
             else:
-                label = 1 if random.random() < 0.1 else 0
-                        
-
-            if random.random() < 0.05:
-                label = 1 - label
+                label = 1 if random.random() < 0.12 else 0
 
             features["label"] = label
             features["user"] = user
-            
-            
+
             rows.append(features)
 
     df = pd.DataFrame(rows)
@@ -233,6 +205,9 @@ def build_feature_dataset(detection_output):
     # -----------------------------
     # Encode categorical
     # -----------------------------
-    df = pd.get_dummies(df, columns=["sequence_signature", "first_event", "last_event"])
+    df = pd.get_dummies(
+        df,
+        columns=["sequence_signature", "first_event", "last_event"]
+    )
 
     return df
