@@ -1,9 +1,12 @@
 from fastapi import FastAPI
 from src.api.routes import ingest, detect, timeline, search, report
+from src.api.routes import export
+
 
 app = FastAPI(title="AI Log Forensics System")
 from src.api.routes import predict
 
+app.include_router(export.router, prefix="/api")
 app.include_router(predict.router, prefix="/api")
 app.include_router(ingest.router, prefix="/api")
 app.include_router(detect.router, prefix="/api")
