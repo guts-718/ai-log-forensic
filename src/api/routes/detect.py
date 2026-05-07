@@ -1,27 +1,34 @@
 from fastapi import APIRouter
 from src.api.state import EVENT_STORE, DETECTION_RESULTS, BASELINES
 
-# import your pipeline
 from src.detection.engine import run_detection
 from src.detection.baseline.baseline_builder import build_user_baselines
+from src.ml.features.feature_builder import build_feature_dataset
+from src.ml.train import train_models
 
 router = APIRouter()
 
 @router.post("/detect")
-def run_detection_pipeline():
+def run_full_detection():
     if not EVENT_STORE:
         return {"error": "No logs ingested"}
 
-    # build baselines
+    # Step 1: baselines
     baselines = build_user_baselines(EVENT_STORE)
 
-    # run detection
+    # Step 2: rule-based detection
     detection_output = run_detection(EVENT_STORE)
 
-    DETECTION_RESULTS["output"] = detection_output
-    BASELINES.update(baselines)
+    # Step 3: ML dataset
+    df = build_feature_dataset(detection_output, baselines)
+
+    # Step 4: train models
+    results = train_models(df)
+
+    DETECTION_RESULTS["rules"] = detection_output
+    DETECTION_RESULTS["ml_results"] = results.to_dict()
 
     return {
-        "message": "Detection completed",
-        "users_processed": len(detection_output)
+        "message": "Detection + ML completed",
+        "models": results.to_dict()
     }
