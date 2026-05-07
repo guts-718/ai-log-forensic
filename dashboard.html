@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Forensics Dashboard</title>
+</head>
+<body>
+
+<h2>Log Ingestion</h2>
+<textarea id="logs" rows="10" cols="80"></textarea><br>
+<button onclick="ingest()">Ingest Logs</button>
+
+<h2>Run Detection</h2>
+<button onclick="detect()">Run Detection</button>
+
+<h2>Timeline</h2>
+<input id="user" placeholder="Enter user">
+<button onclick="timeline()">Get Timeline</button>
+<button onclick="predict()">Run ML Prediction</button>
+<pre id="output"></pre>
+
+<script>
+async function ingest() {
+  const logs = JSON.parse(document.getElementById("logs").value);
+
+  const res = await fetch("/api/ingest", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(logs)
+  });
+
+  document.getElementById("output").innerText = await res.text();
+}
+
+async function detect() {
+  const res = await fetch("/api/detect", {method: "POST"});
+  document.getElementById("output").innerText = await res.text();
+}
+
+async function timeline() {
+  const user = document.getElementById("user").value;
+
+  const res = await fetch(`/api/timeline?user=${user}`);
+  document.getElementById("output").innerText = await res.text();
+}
+
+async function predict() {
+  const res = await fetch("/api/predict", { method: "POST" });
+  const data = await res.json();
+
+  document.getElementById("output").innerText =
+    JSON.stringify(data, null, 2);
+}
+</script>
+
+</body>
+</html>

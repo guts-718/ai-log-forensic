@@ -7,11 +7,57 @@ from src.ml.features.feature_builder import build_feature_dataset
 
 router = APIRouter()
 
-# load everything once
+# load once
 MODEL = joblib.load("model.pkl")
 BASELINES = joblib.load("baselines.pkl")
 FEATURE_COLUMNS = joblib.load("feature_columns.pkl")
 
+@router.post("/predict")
+def predict_anomalies():
+    EVENT_STORE = get_logs()
+
+    if not EVENT_STORE:
+        return {"error": "No logs available"}
+
+    # Step 1 — rule engine (for feature building)
+    detection_output = run_detection(EVENT_STORE)
+
+    # Step 2 — features
+    df = build_feature_dataset(detection_output, BASELINES)
+
+    if df.empty:
+        return {"error": "No features generated"}
+
+    X = df.drop(columns=["label", "user"], errors="ignore")
+
+    # 🔥 ADD missing columns
+    for col in FEATURE_COLUMNS:
+        if col not in X.columns:
+            X[col] = 0
+
+    # 🔥 REMOVE extra columns
+    X = X[FEATURE_COLUMNS]
+
+    # Step 3 — ML inference
+    probs = MODEL.predict_proba(X)[:, 1]
+    preds = (probs >= 0.35).astype(int)   # use your tuned threshold
+
+    df["prediction"] = preds
+    df["probability"] = probs
+
+    anomaly_rows = df[df["prediction"] == 1]
+
+    anomalies = []
+    for _, row in anomaly_rows.iterrows():
+        record = row.to_dict()
+        record["reasons"] = explain_anomaly(row)
+        anomalies.append(record)
+
+    return {
+        "total_records": len(df),
+        "total_anomalies": len(anomalies),
+        "anomalies": anomalies[:20] # type: ignore
+    }
 
 def explain_anomaly(row):
     reasons = []
@@ -25,52 +71,7 @@ def explain_anomaly(row):
     if row.get("burst_ratio", 0) > 0.5:
         reasons.append("Burst activity detected")
 
+    if row.get("event_entropy", 0) > 1.5:
+        reasons.append("High behavioral randomness")
+
     return reasons
-
-
-@router.get("/anomalies")
-def get_anomalies():
-    EVENT_STORE = get_logs()
-
-    if not EVENT_STORE:
-        return {"error": "No logs available"}
-
-    # Step 1 — detection
-    detection_output = run_detection(EVENT_STORE)
-
-    # Step 2 — features
-    df = build_feature_dataset(detection_output, BASELINES)
-
-    if df.empty:
-        return {"error": "No features generated"}
-
-    X = df.drop(columns=["label", "user"], errors="ignore")
-
-    # 🔥 align features
-    for col in FEATURE_COLUMNS:
-        if col not in X.columns:
-            X[col] = 0
-
-    X = X[FEATURE_COLUMNS]
-
-    # Step 3 — prediction
-    probs = MODEL.predict_proba(X)[:, 1]
-    preds = (probs >= 0.35).astype(int)
-
-    df["prediction"] = preds
-    df["probability"] = probs
-
-    # Step 4 — extract anomalies
-    anomaly_rows = df[df["prediction"] == 1]
-
-    anomalies = []
-    for _, row in anomaly_rows.iterrows():
-        record = row.to_dict()
-        record["reasons"] = explain_anomaly(row)
-        anomalies.append(record)
-
-    return {
-        "total_records": len(df),
-        "total_anomalies": len(anomalies),
-        "anomalies": anomalies[:20]
-    }

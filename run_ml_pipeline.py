@@ -1,4 +1,4 @@
-from src.api.app import ingest_events  # or import EVENT_STORE directly
+from api.main import ingest_events  # or import EVENT_STORE directly
 from src.services.ingestion_service import EVENT_STORE
 from src.detection.engine import run_detection
 from src.ml.features.feature_builder import build_feature_dataset

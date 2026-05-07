@@ -54,21 +54,44 @@ def prepare_data_cross_user(df):
 # -----------------------------
 # Threshold optimization
 # -----------------------------
+from sklearn.metrics import fbeta_score, precision_score
+
 def find_best_threshold(y_test, probs):
-    best_score = 0
+    best_score = -1
     best_threshold = 0.5
     best_pred = None
+
+    fallback_score = -1
+    fallback_pred = None
+    fallback_threshold = 0.5
 
     for t in np.arange(0.1, 0.6, 0.05):
         y_temp = (probs >= t).astype(int)
 
-        # 🔥 F-beta (beta=2 → recall weighted)
+        precision = precision_score(y_test, y_temp, zero_division=0)
         score = fbeta_score(y_test, y_temp, beta=2)
 
-        if score > best_score:
+        # always track fallback
+        if score > fallback_score:
+            fallback_score = score
+            fallback_pred = y_temp
+            fallback_threshold = t
+
+        # preferred (with precision constraint)
+        if precision >= 0.5 and score > best_score:
             best_score = score
             best_threshold = t
             best_pred = y_temp
+
+    # 🔥 CRITICAL SAFETY
+    if best_pred is None:
+        best_pred = fallback_pred
+        best_threshold = fallback_threshold
+
+    # 🔥 EXTRA SAFETY (never allow None)
+    if best_pred is None:
+        best_pred = (probs >= 0.5).astype(int)
+        best_threshold = 0.5
 
     return best_threshold, best_pred
 
@@ -80,7 +103,11 @@ def evaluate_model(name, model, X_test, y_test):
     probs = model.predict_proba(X_test)[:, 1]
 
     threshold, y_pred = find_best_threshold(y_test, probs)
+    
 
+    if y_pred is None:
+        y_pred = (probs >= 0.5).astype(int)
+    
     precision = precision_score(y_test, y_pred, zero_division=0)
     recall = recall_score(y_test, y_pred, zero_division=0)
     f1 = f1_score(y_test, y_pred, zero_division=0)
@@ -116,6 +143,8 @@ def train_models(df):
     # Logistic Regression
     # -------------------------
     lr = LogisticRegression(max_iter=1000, class_weight="balanced")
+    print(y_train.value_counts())
+    print(np.unique(y_train, return_counts=True))
     lr.fit(X_train, y_train)
     results.append(evaluate_model("Logistic Regression", lr, X_test, y_test))
 
@@ -153,6 +182,7 @@ def train_models(df):
     # -------------------------
     # LightGBM (BEST MODEL)
     # -------------------------
+    best_model = None
     if LGBMClassifier:
         lgbm = LGBMClassifier(
             scale_pos_weight=4,
@@ -163,5 +193,8 @@ def train_models(df):
         )
         lgbm.fit(X_train, y_train)
         results.append(evaluate_model("LightGBM", lgbm, X_test, y_test))
+        best_model = lgbm  # or pick based on f1
 
-    return pd.DataFrame(results)
+    return pd.DataFrame(results), best_model
+
+    # return pd.DataFrame(results)
