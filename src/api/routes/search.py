@@ -4,7 +4,7 @@ from src.api.state import EVENT_STORE
 router = APIRouter()
 
 @router.get("/search")
-def search_logs(user: str = None, event_type: str = None):
+def search_logs(user: str = None, event_type: str = None): # type: ignore 
     results = EVENT_STORE
 
     if user:

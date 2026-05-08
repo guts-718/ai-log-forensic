@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useEffect } from "react";
 
 export default function Dashboard() {
   const [logs, setLogs] = useState("");
@@ -6,7 +7,20 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState("ALL");
+  const [stats, setStats] = useState(null);
 
+
+  
+  const fetchStats = async () => {
+  try {
+    const res = await fetch("http://127.0.0.1:8000/api/stats");
+    const data = await res.json();
+
+    setStats(data);
+  } catch (err) {
+    console.error(err);
+  }
+};
   const ingestLogs = async () => {
     try {
       setLoading(true);
@@ -98,6 +112,15 @@ export default function Dashboard() {
     return "bg-green-500/20 text-green-300 border border-green-500/30";
   };
 
+
+  useEffect(() => {
+    fetchStats();  
+    const interval = setInterval(fetchStats, 15000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-slate-950 to-slate-900 text-white p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -117,32 +140,28 @@ export default function Dashboard() {
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-xl">
             <p className="text-slate-400 text-sm">Total Logs</p>
             <h2 className="text-4xl font-bold mt-2">
-              {output?.total_records || 0}
+              {stats?.total_logs || 0}
             </h2>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-xl">
             <p className="text-slate-400 text-sm">Detected Anomalies</p>
             <h2 className="text-4xl font-bold mt-2 text-red-300">
-              {output?.total_anomalies || 0}
+               {stats?.total_anomalies || 0}
             </h2>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-xl">
             <p className="text-slate-400 text-sm">High Risk Events</p>
             <h2 className="text-4xl font-bold mt-2 text-yellow-300">
-              {
-                filteredAnomalies.filter(
-                  (a) => getRisk(a.probability) === "HIGH"
-                ).length
-              }
+               {stats?.high_risk_events || 0}
             </h2>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-xl">
             <p className="text-slate-400 text-sm">Users Investigated</p>
             <h2 className="text-4xl font-bold mt-2 text-cyan-300">
-              {new Set(filteredAnomalies.map((a) => a.user)).size}
+              {stats?.users_investigated || 0}
             </h2>
           </div>
         </div>

@@ -11,6 +11,16 @@ CREATE TABLE IF NOT EXISTS logs (
 )
 """)
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS anomalies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user TEXT,
+    probability REAL,
+    risk TEXT,
+    reasons TEXT
+)
+""")
+
 def insert_log(log):
     cursor.execute("INSERT INTO logs (data) VALUES (?)", (json.dumps(log),))
     conn.commit()

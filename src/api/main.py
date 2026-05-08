@@ -1,10 +1,12 @@
 from fastapi import FastAPI
+from src.api.routes import stats
 from src.api.routes import ingest, detect, timeline, search, report
 from src.api.routes import export
 from fastapi.middleware.cors import CORSMiddleware
+from src.api.routes import predict
 
 app = FastAPI(title="AI Log Forensics System")
-from src.api.routes import predict
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,3 +22,4 @@ app.include_router(detect.router, prefix="/api")
 app.include_router(timeline.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(report.router, prefix="/api")
+app.include_router(stats.router, prefix="/api")

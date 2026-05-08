@@ -1,5 +1,7 @@
 from fastapi import APIRouter
 import joblib
+import json
+from src.api.db import cursor, conn
 
 from src.api.db import get_logs
 from src.detection.engine import run_detection
@@ -11,6 +13,16 @@ router = APIRouter()
 MODEL = joblib.load("model.pkl")
 BASELINES = joblib.load("baselines.pkl")
 FEATURE_COLUMNS = joblib.load("feature_columns.pkl")
+
+
+def get_risk(probability: float) -> str:
+    if probability >= 0.8:
+        return "HIGH"
+    elif probability >= 0.5:
+        return "MEDIUM"
+    return "LOW"
+
+
 
 @router.post("/predict")
 def predict_anomalies():
@@ -52,6 +64,22 @@ def predict_anomalies():
         record = row.to_dict()
         record["reasons"] = explain_anomaly(row)
         anomalies.append(record)
+
+        cursor.execute(
+    """
+    INSERT INTO anomalies (user, probability, risk, reasons)
+    VALUES (?, ?, ?, ?)
+    """,
+    (
+        record.get("user"),
+        float(record.get("probability", 0)),
+        get_risk(record.get("probability", 0)),
+        json.dumps(record.get("reasons", []))
+    )
+    )
+
+    conn.commit()
+
 
     return {
         "total_records": len(df),
