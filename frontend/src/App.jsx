@@ -113,6 +113,32 @@ export default function Dashboard() {
   };
 
 
+  const resetSystem = async () => {
+    try {
+      setLoading(true);
+
+      const res = await fetch(
+        "http://127.0.0.1:8000/api/reset",
+        {
+          method: "POST",
+        }
+      );
+
+      const data = await res.json();
+
+      console.log(data);
+
+      setOutput(null);
+      setStats(null);
+
+      alert("System reset successful");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchStats();  
     const interval = setInterval(fetchStats, 15000);
@@ -227,6 +253,13 @@ export default function Dashboard() {
                 className="bg-white/10 hover:bg-white/20 transition py-4 rounded-2xl text-lg"
               >
                 Export PDF Report
+              </button>
+
+              <button
+                onClick={resetSystem}
+                className="bg-red-500 hover:bg-red-400 transition py-4 rounded-2xl text-lg font-semibold text-black"
+              >
+                Reset System
               </button>
             </div>
 

@@ -29,3 +29,13 @@ def get_logs():
     cursor.execute("SELECT data FROM logs")
     rows = cursor.fetchall()
     return [json.loads(r[0]) for r in rows]
+
+
+def clear_logs():
+    cursor.execute("DELETE FROM logs")
+    conn.commit()
+
+
+def clear_anomalies():
+    cursor.execute("DELETE FROM anomalies")
+    conn.commit()

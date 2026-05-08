@@ -6,6 +6,7 @@ from src.api.db import cursor, conn
 from src.api.db import get_logs
 from src.detection.engine import run_detection
 from src.ml.features.feature_builder import build_feature_dataset
+from src.api.db import clear_anomalies
 
 router = APIRouter()
 
@@ -60,6 +61,8 @@ def predict_anomalies():
     anomaly_rows = df[df["prediction"] == 1]
 
     anomalies = []
+    # remove previous prediction results
+    clear_anomalies()
     for _, row in anomaly_rows.iterrows():
         record = row.to_dict()
         record["reasons"] = explain_anomaly(row)
