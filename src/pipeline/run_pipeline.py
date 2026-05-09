@@ -7,6 +7,7 @@ from src.parsers.email_parser import parse_email
 from src.parsers.device_parser import parse_device
 from src.normalization.normalizer import normalize_events
 from src.sequence.builder import build_sequences
+from src.processing.event_mapper import enrich_events
 
 DATA_DIR = Path("data/processed")
 # DATA_DIR = Path("data/raw")
@@ -36,7 +37,8 @@ def run():
 
     print("Normalizing...")
     events = normalize_events(events)
-
+    
+    events = enrich_events(events)
     print("Building sequences...")
     sequences = build_sequences(events)
 
@@ -46,6 +48,16 @@ def run():
     for user, seq in list(sequences.items())[:2]:
         print(f"\nUser: {user}, Events: {len(seq)}")
         print(seq[:3])
+
+    
+    from collections import Counter
+
+    print(
+        Counter(
+            e["event_type"]
+            for e in events
+        )
+    )
 
     return sequences
 

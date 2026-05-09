@@ -89,32 +89,41 @@ def build_event_graph(events):
     # -----------------------------
     # TEMPORAL + CORRELATION EDGES
     # -----------------------------
-    for i in range(len(events) - 1):
+    WINDOW_SIZE = 10
+
+    for i in range(len(events)):
 
         e1 = events[i]
-        e2 = events[i + 1]
 
         id1 = e1["event_id"]
-        id2 = e2["event_id"]
 
-        # TEMPORAL EDGE
-        G.add_edge(
-            id1,
-            id2,
-            edge_type="temporal",
-            weight=1
-        )
+        # correlate nearby events
+        for j in range(i + 1, min(i + WINDOW_SIZE, len(events))):
 
-        # CORRELATION EDGE
-        correlation_weight = compute_edge_weight(e1, e2)
+            e2 = events[j]
 
-        if correlation_weight >= 3:
+            id2 = e2["event_id"]
 
+            # temporal edge
             G.add_edge(
                 id1,
                 id2,
-                edge_type="correlated",
-                weight=correlation_weight
+                edge_type="temporal",
+                weight=1
             )
+
+            correlation_weight = compute_edge_weight(
+                e1,
+                e2
+            )
+
+            if correlation_weight >= 3:
+
+                G.add_edge(
+                    id1,
+                    id2,
+                    edge_type="correlated",
+                    weight=correlation_weight
+                )
 
     return G
