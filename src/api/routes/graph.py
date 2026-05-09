@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 import time
+
 from src.pipeline.run_pipeline import run
 
 from src.graph.graph_builder import (
@@ -14,8 +15,13 @@ from src.graph.subgraph_extractor import (
     build_attack_subgraph
 )
 
-GRAPH_CACHE = {}
+
 router = APIRouter()
+
+# -----------------------------------
+# SIMPLE IN-MEMORY CACHE
+# -----------------------------------
+GRAPH_CACHE = {}
 
 
 # -----------------------------------
@@ -33,54 +39,149 @@ def get_graph():
 
         return GRAPH_CACHE["graph"]
 
+    # -----------------------------------
+    # LOAD DATA
+    # -----------------------------------
     print("Loading data...")
+
     t = time.time()
+
     sequences = run()
+
     print(
-    "run done:",
-    time.time() - t
+        "Data loading completed:",
+        round(time.time() - t, 2),
+        "seconds"
     )
+
+    # -----------------------------------
+    # FLATTEN EVENTS
+    # -----------------------------------
     events = []
 
     for _, seq in sequences.items():
         events.extend(seq)
 
-    # smaller subset initially
-    # events = events[:5000]
-
+    # smaller subset for visualization
     events = events[:1000]
 
+    print(
+        f"Using {len(events)} events"
+    )
+
+    # -----------------------------------
+    # BUILD GRAPH
+    # -----------------------------------
     print("Building graph...")
+
     t = time.time()
 
     G = build_event_graph(events)
 
     print(
-    "Graph build:",
-    time.time() - t
+        "Graph build completed:",
+        round(time.time() - t, 2),
+        "seconds"
     )
 
-    print("Extracting suspicious paths...")
+    print(
+        f"Nodes: {G.number_of_nodes()}"
+    )
+
+    print(
+        f"Edges: {G.number_of_edges()}"
+    )
+
+    # -----------------------------------
+    # EXTRACT PATHS
+    # -----------------------------------
+    print(
+        "Extracting suspicious paths..."
+    )
+
+    t = time.time()
 
     suspicious_paths = extract_suspicious_paths(
         G,
         depth=4
     )
 
-    # suspicious_paths = suspicious_paths[:100]
-    suspicious_paths = suspicious_paths[:30]
+    print(
+        "Path extraction completed:",
+        round(time.time() - t, 2),
+        "seconds"
+    )
 
-    print("Building attack subgraph...")
+    print(
+        f"Found {len(suspicious_paths)} suspicious paths"
+    )
+
+    # -----------------------------------
+    # USER-DIVERSE PATH SELECTION
+    # -----------------------------------
+    unique_users = set()
+
+    filtered_paths = []
+
+    for p in suspicious_paths:
+
+        path = p["path"]
+
+        users = set()
+
+        for node in path:
+
+            node_data = G.nodes[node]
+
+            if node_data.get("user"):
+
+                users.add(
+                    node_data["user"]
+                )
+
+        if not users:
+            continue
+
+        user = list(users)[0]
+
+        if user not in unique_users:
+
+            unique_users.add(user)
+
+            filtered_paths.append(p)
+
+    suspicious_paths = filtered_paths[:30]
+
+    print(
+        f"Selected {len(suspicious_paths)} diversified paths"
+    )
+
+    # -----------------------------------
+    # BUILD ATTACK SUBGRAPH
+    # -----------------------------------
+    print(
+        "Building attack subgraph..."
+    )
 
     t = time.time()
+
     SG = build_attack_subgraph(
         G,
         suspicious_paths
     )
 
     print(
-    "Attack subgraph build:",
-    time.time() - t
+        "Subgraph build completed:",
+        round(time.time() - t, 2),
+        "seconds"
+    )
+
+    print(
+        f"Subgraph nodes: {SG.number_of_nodes()}"
+    )
+
+    print(
+        f"Subgraph edges: {SG.number_of_edges()}"
     )
 
     # -----------------------------------
@@ -103,10 +204,17 @@ def get_graph():
                 "node_type"
             ),
 
-            "user": data.get("user"),
+            "user": data.get(
+                "user"
+            ),
 
             "timestamp": str(
                 data.get("timestamp")
+            ),
+
+            "risk_score": data.get(
+                "risk_score",
+                0
             )
         })
 
@@ -120,9 +228,10 @@ def get_graph():
         edges.append({
 
             "source": u,
+
             "target": v,
 
-            "type": data.get(
+            "edge_type": data.get(
                 "edge_type"
             ),
 
@@ -132,15 +241,25 @@ def get_graph():
             )
         })
 
+    # -----------------------------------
+    # FINAL RESPONSE
+    # -----------------------------------
     response = {
 
-    "num_nodes": len(nodes),
-    "num_edges": len(edges),
+        "num_nodes": len(nodes),
 
-    "nodes": nodes,
-    "edges": edges
-}
+        "num_edges": len(edges),
 
+        "nodes": nodes,
+
+        "edges": edges
+    }
+
+    # -----------------------------------
+    # CACHE GRAPH
+    # -----------------------------------
     GRAPH_CACHE["graph"] = response
+
+    print("Graph cached successfully")
 
     return response
