@@ -1,7 +1,9 @@
 import networkx as nx
 
 from src.graph.template_matcher import match_all_templates
-
+from src.graph.contextual_scoring import (
+    compute_contextual_score
+)
 
 MAX_PATHS = 5000
 
@@ -88,6 +90,7 @@ def extract_suspicious_paths(
 ):
 
     suspicious_paths = []
+    seen_signatures = set()
 
     # suspicious starting nodes only
     event_nodes = [
@@ -166,6 +169,19 @@ def extract_suspicious_paths(
 
                 neighbor_data = G.nodes[neighbor]
 
+                t1 = current_data.get("timestamp")
+                t2 = neighbor_data.get("timestamp")
+
+                if t1 and t2:
+
+                    diff = abs(
+                        (t2 - t1).total_seconds()
+                    )
+
+                    # max 10 minute jump
+                    if diff > 600:
+                        continue
+
                 # maintain event continuity
                 if (
                     neighbor_data.get("node_type")
@@ -181,38 +197,56 @@ def extract_suspicious_paths(
                 new_path = path + [neighbor]
 
                 # compute path score
-                score = compute_path_score(
+                edge_score = compute_path_score(
                     G,
                     new_path
                 )
 
+                context_score = compute_contextual_score(
+                    G,
+                    new_path
+                )
+
+                score = (
+                    edge_score
+                    + context_score
+                )
+
                 # keep suspicious paths
                 if (
-                    len(new_path) >= min_length
-                    and score >= min_score
+                    len(new_path) >= 3
+                    and score >= 5
                 ):
 
-                    template_matches = match_all_templates(
-                        G,
-                        new_path
-                    )
+                    # -----------------------------------
+                    # CREATE BEHAVIORAL SIGNATURE
+                    # -----------------------------------
+                    signature = []
+
+                    for n in new_path:
+
+                        d = G.nodes[n]
+
+                        if d.get("node_type") == "event":
+
+                            signature.append(
+                                d.get("event_type")
+                            )
+
+                    signature = tuple(signature)
+
+                    # -----------------------------------
+                    # SKIP DUPLICATES
+                    # -----------------------------------
+                    if signature in seen_signatures:
+                        continue
+
+                    seen_signatures.add(signature)
 
                     suspicious_paths.append({
-
                         "path": new_path,
-                        "score": score,
-                        "template_matches": template_matches
+                        "score": score
                     })
-
-                    if len(suspicious_paths) >= MAX_PATHS:
-
-                        suspicious_paths = sorted(
-                            suspicious_paths,
-                            key=lambda x: x["score"],
-                            reverse=True
-                        )
-
-                        return suspicious_paths
 
                 # continue DFS
                 if len(new_path) < depth:
