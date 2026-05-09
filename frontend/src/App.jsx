@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useEffect } from "react";
+import AttackGraph from "./components/AttackGraph";
 
 export default function Dashboard() {
   const [logs, setLogs] = useState("");
@@ -153,8 +154,9 @@ export default function Dashboard() {
         <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-sm shadow-2xl">
           <h1 className="text-5xl font-bold tracking-tight">
             AI-Powered Cyber Forensics Dashboard
+            
           </h1>
-
+           <AttackGraph />
           <p className="text-slate-300 mt-4 text-lg max-w-3xl">
             Behavioral anomaly detection, forensic timeline reconstruction,
             explainable AI inference, and automated cyber investigation
@@ -387,7 +389,9 @@ export default function Dashboard() {
                   {a.reasons?.join(", ") ||
                     "Behavior deviation detected"}
                 </p>
+               
               </div>
+              
             ))}
           </div>
         </div>

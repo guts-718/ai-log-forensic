@@ -5,7 +5,7 @@ from src.api.routes import export
 from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes import predict
 from src.api.routes import reset
-
+from src.api.routes.graph import router as graph_router
 
 app = FastAPI(title="AI Log Forensics System")
 
@@ -17,6 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(graph_router,prefix="/api")
 app.include_router(export.router, prefix="/api")
 app.include_router(predict.router, prefix="/api")
 app.include_router(ingest.router, prefix="/api")
