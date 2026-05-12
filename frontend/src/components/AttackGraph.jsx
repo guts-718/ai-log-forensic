@@ -10,6 +10,8 @@ export default function AttackGraph() {
         links: []
     });
 
+    const [selectedNode, setSelectedNode] = useState(null);
+
     useEffect(() => {
 
         fetch("http://127.0.0.1:8000/api/graph")
@@ -26,39 +28,187 @@ export default function AttackGraph() {
 
     }, []);
 
+    // -----------------------------------
+    // NODE COLORING
+    // -----------------------------------
+    const getNodeColor = (node) => {
+
+        const label = node.label;
+
+        if (
+            label === "external_transfer"
+        ) {
+            return "#ff4d4f";
+        }
+
+        if (
+            label === "usb_insert"
+        ) {
+            return "#fa8c16";
+        }
+
+        if (
+            label === "bulk_file_access"
+        ) {
+            return "#722ed1";
+        }
+
+        if (
+            label === "archive_creation"
+        ) {
+            return "#eb2f96";
+        }
+
+        if (
+            label === "email_sent"
+        ) {
+            return "#1890ff";
+        }
+
+        return "#52c41a";
+    };
+
+    // -----------------------------------
+    // NODE SIZE
+    // -----------------------------------
+    const getNodeSize = (node) => {
+
+        return Math.max(
+            4,
+            node.risk_score * 1.5
+        );
+    };
+
+    // -----------------------------------
+    // EDGE COLOR
+    // -----------------------------------
+    const getEdgeColor = (link) => {
+
+        if (
+            link.edge_type === "temporal"
+        ) {
+            return "#999";
+        }
+
+        if (
+            link.edge_type === "correlated"
+        ) {
+            return "#ff7875";
+        }
+
+        return "#69c0ff";
+    };
+
     return (
 
-        <div className="w-full h-[800px] border rounded">
-            <div>this is the beginning of the attack graph</div>
-            <ForceGraph2D
+        <div className="w-full">
 
-                graphData={graphData}
+            {/* ----------------------------------- */}
+            {/* GRAPH */}
+            {/* ----------------------------------- */}
+            <div className="border rounded-xl overflow-hidden">
 
-                nodeLabel={node => `
-                    ${node.label}
-                    ${node.user || ""}
-                `}
+                <ForceGraph2D
 
-                nodeAutoColorBy="type"
+                    graphData={graphData}
 
-                linkDirectionalParticles={2}
+                    width={1400}
 
-                linkDirectionalParticleSpeed={0.003}
+                    height={800}
 
-                linkWidth={link =>
-                    Math.max(
-                        1,
-                        link.weight / 3
-                    )
-                }
+                    backgroundColor="#0f172a"
 
-                cooldownTicks={100}
+                    nodeLabel={node => `
+                        ${node.label}
 
-                onNodeClick={(node) => {
+                        User: ${node.user || "N/A"}
 
-                    console.log(node);
-                }}
-            />
+                        Time:
+                        ${node.timestamp || "N/A"}
+                    `}
+
+                    nodeColor={getNodeColor}
+
+                    nodeVal={getNodeSize}
+
+                    linkColor={getEdgeColor}
+
+                    linkWidth={link =>
+                        Math.max(
+                            1,
+                            link.weight / 2
+                        )
+                    }
+
+                    linkDirectionalParticles={2}
+
+                    linkDirectionalParticleSpeed={0.003}
+
+                    cooldownTicks={100}
+
+                    onNodeClick={(node) => {
+
+                        setSelectedNode(node);
+                    }}
+                />
+
+            </div>
+
+            {/* ----------------------------------- */}
+            {/* SIDE PANEL */}
+            {/* ----------------------------------- */}
+            {
+                selectedNode && (
+
+                    <div className="mt-4 p-4 border rounded-xl bg-white shadow">
+
+                        <h2 className="text-xl font-bold mb-3">
+                            Event Details
+                        </h2>
+
+                        <div className="space-y-2">
+
+                            <p>
+                                <strong>Event:</strong>
+                                {" "}
+                                {selectedNode.label}
+                            </p>
+
+                            <p>
+                                <strong>User:</strong>
+                                {" "}
+                                {selectedNode.user}
+                            </p>
+
+                            <p>
+                                <strong>Timestamp:</strong>
+                                {" "}
+                                {selectedNode.timestamp}
+                            </p>
+
+                            <p>
+                                <strong>Device:</strong>
+                                {" "}
+                                {selectedNode.device || "N/A"}
+                            </p>
+
+                            <p>
+                                <strong>Resource:</strong>
+                                {" "}
+                                {selectedNode.resource || "N/A"}
+                            </p>
+
+                            <p>
+                                <strong>Risk Score:</strong>
+                                {" "}
+                                {selectedNode.risk_score}
+                            </p>
+
+                        </div>
+
+                    </div>
+                )
+            }
 
         </div>
     );

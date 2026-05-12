@@ -215,6 +215,18 @@ def get_graph():
             "risk_score": data.get(
                 "risk_score",
                 0
+            ),
+            "resource": data.get(
+                "resource"
+            ),
+
+            "device": data.get(
+                "device"
+            ),
+
+            "metadata": data.get(
+                "metadata",
+                {}
             )
         })
 

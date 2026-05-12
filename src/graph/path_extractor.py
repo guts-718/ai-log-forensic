@@ -179,7 +179,7 @@ def extract_suspicious_paths(
                     )
 
                     # max 10 minute jump
-                    if diff > 600:
+                    if diff > 3600:
                         continue
 
                 # maintain event continuity

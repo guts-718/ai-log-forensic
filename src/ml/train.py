@@ -50,10 +50,8 @@ def prepare_data_cross_user(df):
 
     return X_train, X_test, y_train, y_test
 
-
-# -----------------------------
 # Threshold optimization
-# -----------------------------
+
 from sklearn.metrics import fbeta_score, precision_score
 
 def find_best_threshold(y_test, probs):
@@ -83,12 +81,12 @@ def find_best_threshold(y_test, probs):
             best_threshold = t
             best_pred = y_temp
 
-    # 🔥 CRITICAL SAFETY
+    #CRITICAL SAFETY
     if best_pred is None:
         best_pred = fallback_pred
         best_threshold = fallback_threshold
 
-    # 🔥 EXTRA SAFETY (never allow None)
+    # EXTRA SAFETY (never allow None)
     if best_pred is None:
         best_pred = (probs >= 0.5).astype(int)
         best_threshold = 0.5
@@ -98,7 +96,7 @@ def find_best_threshold(y_test, probs):
 
 # -----------------------------
 # Evaluation
-# -----------------------------
+
 def evaluate_model(name, model, X_test, y_test):
     probs = model.predict_proba(X_test)[:, 1]
 

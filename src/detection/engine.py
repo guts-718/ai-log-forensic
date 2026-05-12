@@ -69,7 +69,7 @@ def evaluate_window(events, baseline, seen_devices):
 # -------------------------
 # Main Detection Engine
 # -------------------------
-def run_detection(events, window_size="1H"):
+def run_detection(events, window_size="1h"):
     """
     Input:
         events: list of unified events

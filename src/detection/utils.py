@@ -8,7 +8,7 @@ def group_events_by_user(events):
     return user_map
 
 
-def create_time_windows(events, window="1H"):
+def create_time_windows(events, window="1h"):
     df = pd.DataFrame(events)
     df["timestamp"] = pd.to_datetime(df["timestamp"])
 
