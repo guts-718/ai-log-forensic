@@ -199,42 +199,129 @@ def build_features_for_window(events, baselines):
 # -----------------------------
 # Dataset Builder
 # -----------------------------
+# -----------------------------
+# Dataset Builder
+# -----------------------------
 def build_feature_dataset(detection_output, baselines):
-    rows = []
 
+    all_events = []
+
+    # ---------------------------------
+    # Flatten ALL events first
+    # ---------------------------------
     for user, data in detection_output.items():
+
         for window in data["windows"]:
 
             events = window.get("raw_events", [])
 
-            features = build_features_for_window(events, baselines)
+            for e in events:
 
-            if features is None:
-                continue
+                event = dict(e)
 
-            # -----------------------------
-            # Label logic
-            # -----------------------------
-            if window["score"] >= 7:
-                label = 1
-            elif window["score"] <= 2:
-                label = 0
-            else:
-                label = 1 if random.random() < 0.12 else 0
+                event["user"] = user
 
-            features["label"] = label
-            features["user"] = user
+                # preserve anomaly score
+                event["window_score"] = window.get("score", 0)
 
-            rows.append(features)
+                all_events.append(event)
 
+    # ---------------------------------
+    # Create dataframe
+    # ---------------------------------
+    df_events = pd.DataFrame(all_events)
+
+    if len(df_events) == 0:
+        return pd.DataFrame()
+
+    # ---------------------------------
+    # Timestamp handling
+    # ---------------------------------
+    df_events["timestamp"] = pd.to_datetime(
+        df_events["timestamp"]
+    )
+
+    # sort
+    df_events = df_events.sort_values(
+        ["user", "timestamp"]
+    )
+
+    # ---------------------------------
+    # REAL TEMPORAL WINDOWS
+    # ---------------------------------
+    df_events["time_window"] = df_events["timestamp"].dt.floor("1H")
+
+    grouped = df_events.groupby(
+        ["user", "time_window"]
+    )
+
+    rows = []
+
+    # ---------------------------------
+    # Build features per behavioral window
+    # ---------------------------------
+    for (user, time_window), group in grouped:
+
+        events = group.to_dict("records")
+
+        # chronological order
+        events = sorted(
+            events,
+            key=lambda x: x["timestamp"]
+        )
+
+        features = build_features_for_window(
+            events,
+            baselines
+        )
+
+        if features is None:
+            continue
+
+        # ---------------------------------
+        # Better label aggregation
+        # ---------------------------------
+        max_score = group["window_score"].max()
+        mean_score = group["window_score"].mean()
+
+        if max_score >= 7:
+            label = 1
+
+        elif mean_score <= 2:
+            label = 0
+
+        else:
+            label = 1 if random.random() < 0.15 else 0
+
+        features["label"] = label
+        features["user"] = user
+        features["time_window"] = str(time_window)
+
+        rows.append(features)
+
+    # ---------------------------------
+    # Final dataframe
+    # ---------------------------------
     df = pd.DataFrame(rows)
 
-    # -----------------------------
+    # ---------------------------------
+    # Remove tiny windows
+    # VERY IMPORTANT
+    # ---------------------------------
+    df = df[
+        df["event_count"] >= 5
+    ]
+
+    # ---------------------------------
     # Encode categorical
-    # -----------------------------
+    # ---------------------------------
     df = pd.get_dummies(
         df,
-        columns=["sequence_signature", "first_event", "last_event"]
+        columns=[
+            "sequence_signature",
+            "first_event",
+            "last_event"
+        ]
     )
 
     return df
